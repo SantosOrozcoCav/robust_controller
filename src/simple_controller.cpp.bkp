@@ -1,0 +1,147 @@
+#include "ros/ros.h"
+#include "std_msgs/Float64.h"
+#include "std_msgs/Float32MultiArray.h"
+#include "nav_msgs/Odometry.h"
+#include <iostream>
+#include <fstream>
+#include <eigen3/Eigen/Dense>
+
+using namespace std;
+using namespace Eigen;
+
+float c(float x);
+float s(float x);
+Matrix3f W_R_B(float phi, float the, float psi);
+MatrixXf F1(float a);
+void odometry_callback(const nav_msgs::Odometry odometry_msg);
+void save();
+
+//control ctrl;
+float pi = 3.1416;
+float tilt_angle;
+
+/*------------------Parameters of dynamics---------------*/
+float g = 9.81, m = 1.5;
+float Ixx = 0.0347563, Iyy = 0.0458929, Izz = 0.0977;
+float kf = 8.54858e-6, km = 1.6e-2;
+float l = 0.215;
+/*------------------Parameters of dynamics---------------*/
+
+/*--------------------Control variables------------------*/
+float zd = -2.0, z, dz, ez, dez, uz;
+Vector3f u;
+MatrixXf wRbF1(3,6);
+MatrixXf invF1(6,3);
+/*--------------------Control variables------------------*/
+
+std_msgs::Float64 t_msg0;
+std_msgs::Float64 t_msg1;
+std_msgs::Float64 t_msg2;
+std_msgs::Float64 t_msg3;
+std_msgs::Float64 t_msg4;
+std_msgs::Float64 t_msg5;
+std_msgs::Float32MultiArray motor_vel;
+nav_msgs::Odometry odom;
+
+int main(int argc, char **argv)
+{
+	ros::init(argc, argv,"simple_controller");
+	ros::NodeHandle nh;
+	
+	ros::Publisher rotors_publisher = nh.advertise<std_msgs::Float32MultiArray>("/firefly_tilt/cmd/motor_vel",0);
+	
+	ros::Publisher tilt_0_publisher = nh.advertise<std_msgs::Float64>("/tilt/tilt_rotor_0_joint_controller/command",0);
+	ros::Publisher tilt_1_publisher = nh.advertise<std_msgs::Float64>("/tilt/tilt_rotor_1_joint_controller/command",0);
+	ros::Publisher tilt_2_publisher = nh.advertise<std_msgs::Float64>("/tilt/tilt_rotor_2_joint_controller/command",0);
+	ros::Publisher tilt_3_publisher = nh.advertise<std_msgs::Float64>("/tilt/tilt_rotor_3_joint_controller/command",0);
+	ros::Publisher tilt_4_publisher = nh.advertise<std_msgs::Float64>("/tilt/tilt_rotor_4_joint_controller/command",0);
+	ros::Publisher tilt_5_publisher = nh.advertise<std_msgs::Float64>("/tilt/tilt_rotor_5_joint_controller/command",0);
+
+	ros::Subscriber feedback = nh.subscribe("/firefly_tilt/odometry", 1, odometry_callback);
+	
+	motor_vel.data.resize(6);
+	ros::Rate loop_rate(10);
+	tilt_angle = 0*pi/180.0;
+	
+	t_msg0.data = tilt_angle;
+	t_msg1.data = tilt_angle;
+	t_msg2.data = tilt_angle;
+	t_msg3.data = tilt_angle;
+	t_msg4.data = tilt_angle;
+	t_msg5.data = tilt_angle;
+	cout<<"debug"<<endl;
+	while (ros::ok())
+	{
+		cout<<"-------------------------------------"<<endl;
+		u<<0,0,200;
+		wRbF1 = W_R_B(0,0,0)*F1(0);
+		cout <<u<<"\n"<<endl;
+		z = odom.pose.pose.position.z;
+		dz = odom.twist.twist.linear.z;
+		cout<<"zd = "<<zd<<endl;
+		cout<<"z = "<<z<<endl;
+		ez = zd - z;
+		dez = 0 - dz;
+		uz = -(5*ez + 3*dez - g)/m;
+		//if(abs(uz)<1e-2){uz = 0;}
+		cout<<"ez = "<<ez<<"\n"<<"uz = "<<uz<<endl;
+		//if(uz > 1000.0){ez = 1000.0};
+		t_msg0.data = tilt_angle;
+		t_msg1.data = tilt_angle;
+		t_msg2.data = tilt_angle;
+		t_msg3.data = tilt_angle;
+		t_msg4.data = tilt_angle;
+		t_msg5.data = tilt_angle;
+	
+		tilt_0_publisher.publish(t_msg0);
+		tilt_1_publisher.publish(t_msg1);
+		tilt_2_publisher.publish(t_msg2);
+		tilt_3_publisher.publish(t_msg3);
+		tilt_4_publisher.publish(t_msg4);
+		tilt_5_publisher.publish(t_msg5);
+		cout<<"rotor velocities:"<<endl;
+		for(int i=0; i<motor_vel.data.size(); i++ ) {
+            motor_vel.data[i] = sqrt(abs(uz)/kf);
+            cout<<motor_vel.data[i]<<endl;
+        }			
+		rotors_publisher.publish(motor_vel);
+		ros::spinOnce();
+		loop_rate.sleep();
+		//save();
+	}
+	return 0;
+}
+
+void odometry_callback(const nav_msgs::Odometry odometry_msg) {
+    odom = odometry_msg;
+}
+
+void save(){
+	ofstream myfile;
+	myfile.open ("results.txt",std::ios::app);
+	myfile <<zd<<","<<z<<","<<dz<<","<<uz<<endl;
+	myfile.close();
+}
+
+float c(float x){
+	return cos(x);
+}
+float s(float x){
+	return sin(x);
+}
+
+Matrix3f W_R_B(float phi, float the, float psi)
+{
+	Matrix3f wRb;
+	wRb<<c(psi)*c(the), c(psi)*s(the)*s(phi)-s(psi)*c(phi), c(psi)*s(the)*c(phi)+s(psi)*s(phi), s(psi)*c(the), s(psi)*s(the)*s(phi)+c(psi)*c(phi), s(psi)*s(the)*c(phi)-c(psi)*s(phi) ,-s(the) , c(the)*s(phi) , c(the)*c(phi);
+	return wRb;	
+}
+
+MatrixXf F1(float a){
+	MatrixXf f1(3,6);
+	f1(0,0) = 0; f1(0,1) = s(a)*sqrt(3)/2.; f1(0,2) = -s(a)*sqrt(3)/2.; f1(0,3) = 0; f1(0,4) = s(a)*sqrt(3)/2.; f1(0,5) = -s(a)*sqrt(3)/2.;
+	f1(1,0) = s(a); f1(1,1) = -s(a)/2.; f1(1,2) = -s(a)/2.; f1(1,3) = s(a); f1(1,4) = -s(a)/2.; f1(1,5) = -s(a)/2.;
+	f1(2,0) = c(a); f1(2,1) = c(a); f1(2,2) = c(a); f1(2,3) = c(a); f1(2,4) = c(a); f1(2,5) = c(a);
+	return f1;
+}
+

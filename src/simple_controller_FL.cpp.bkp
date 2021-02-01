@@ -1,0 +1,232 @@
+#include "ros/ros.h"
+#include "std_msgs/Float64.h"
+#include "std_msgs/Float32MultiArray.h"
+#include "nav_msgs/Odometry.h"
+#include <iostream>
+#include <fstream>
+#include <eigen3/Eigen/Dense>
+
+using namespace std;
+using namespace Eigen;
+
+// Z WORKS!!!!!
+//control ctrl;
+
+/*------------------Parameters of dynamics---------------*/
+float g = 9.81, m = 1.5, pi = 3.1416;
+float Ixx = 0.0347563, Iyy = 0.0458929, Izz = 0.0977;
+float kf = 8.54858e-6, km = 1.6e-2, l = 0.215, d = km/kf;
+/*------------------Parameters of dynamics---------------*/
+
+/*--------------------Control variables------------------*/
+float xd =  0.0, dxd =  0.0, x, dx, ex, dex, fx;
+float yd =  0.0, dyd =  0.0, y, dy, ey, dey, fy;
+float zd = -2.0, dzd =  0.0, z, dz, ez, dez, fz;
+float phid =  0.0, phi, dphi, ephi, dephi, tx;
+float thed =  0.0, the, dthe, ethe, dethe, ty;
+float psid =  pi/2.0, psi, dpsi, epsi, depsi, tz;
+/*--------------------Control variables------------------*/
+VectorXf _x(6), _dx(6), _xd(6), _dxd(6), _b(6);
+/*-----------------Allocation variables------------------*/
+float c(float x);
+float s(float x);
+float sign(float x);
+Matrix3f W_R_B(float phi, float the, float psi);
+MatrixXf F1(float a);
+MatrixXf F2(float a);
+VectorXf v(6);
+VectorXf u(6);
+VectorXf w(6);
+MatrixXf wRbF1(3,6);
+MatrixXf F(6,6);
+MatrixXf G(6,6);
+MatrixXf M(6,6);
+MatrixXf invF(6,6);
+MatrixXf invG(6,6);
+MatrixXf invM(6,6);
+/*-----------------Allocation variables------------------*/
+
+/*---------------------ROS variables---------------------*/
+void odometry_callback(const nav_msgs::Odometry odometry_msg);
+void save();
+float tilt_angle;
+std_msgs::Float64 t_msg0;
+std_msgs::Float64 t_msg1;
+std_msgs::Float64 t_msg2;
+std_msgs::Float64 t_msg3;
+std_msgs::Float64 t_msg4;
+std_msgs::Float64 t_msg5;
+std_msgs::Float32MultiArray motor_vel;
+nav_msgs::Odometry odom;
+/*---------------------ROS variables---------------------*/
+
+int main(int argc, char **argv)
+{
+	ros::init(argc, argv,"simple_controller");
+	ros::NodeHandle nh;
+	
+	ros::Publisher rotors_publisher = nh.advertise<std_msgs::Float32MultiArray>("/firefly_tilt/cmd/motor_vel",0);
+	
+	ros::Publisher tilt_0_publisher = nh.advertise<std_msgs::Float64>("/tilt/tilt_rotor_0_joint_controller/command",0);
+	ros::Publisher tilt_1_publisher = nh.advertise<std_msgs::Float64>("/tilt/tilt_rotor_1_joint_controller/command",0);
+	ros::Publisher tilt_2_publisher = nh.advertise<std_msgs::Float64>("/tilt/tilt_rotor_2_joint_controller/command",0);
+	ros::Publisher tilt_3_publisher = nh.advertise<std_msgs::Float64>("/tilt/tilt_rotor_3_joint_controller/command",0);
+	ros::Publisher tilt_4_publisher = nh.advertise<std_msgs::Float64>("/tilt/tilt_rotor_4_joint_controller/command",0);
+	ros::Publisher tilt_5_publisher = nh.advertise<std_msgs::Float64>("/tilt/tilt_rotor_5_joint_controller/command",0);
+
+	ros::Subscriber feedback = nh.subscribe("/firefly_tilt/odometry", 1, odometry_callback);
+	
+	motor_vel.data.resize(6);
+	ros::Rate loop_rate(10);
+	tilt_angle = 20*pi/180.0;
+	
+	t_msg0.data = tilt_angle;
+	t_msg1.data = tilt_angle;
+	t_msg2.data = tilt_angle;
+	t_msg3.data = tilt_angle;
+	t_msg4.data = tilt_angle;
+	t_msg5.data = tilt_angle;
+	
+	/*-----Allocation-------*/
+	M(0,0) = m; M(1,1) = m; M(2,2) = m;
+	M(3,3) = Ixx; M(4,4) = Iyy; M(5,5) = Izz;
+	invM = M.inverse();
+	/*-----References------*/
+	_xd<<0,0,-2,0,0,0;
+	_dxd<<0,0,0,0,0,0;
+	_b<<0,0,m*g,0,0,0;
+	/*------ROS Loop-------*/
+	while (ros::ok())
+	{
+		cout<<"-------------------------------------"<<endl;
+		/*-----Feedback-----------*/
+		x = odom.pose.pose.position.x;
+		y = odom.pose.pose.position.y;
+		z = odom.pose.pose.position.z;
+		
+		dx = odom.twist.twist.linear.x;
+		dy = odom.twist.twist.linear.y;
+		dz = odom.twist.twist.linear.z;
+		
+		phi = odom.pose.pose.orientation.x;
+		the = odom.pose.pose.orientation.y;
+		psi = odom.pose.pose.orientation.z;
+		
+		dphi = odom.twist.twist.angular.x;
+		dthe = odom.twist.twist.angular.y;
+		dpsi = odom.twist.twist.angular.z;
+		
+		/*_x<<odom.pose.pose.position.x, odom.pose.pose.position.y, odom.pose.pose.position.z, odom.pose.pose.orientation.x, odom.pose.pose.orientation.y, odom.pose.pose.orientation.z;
+		_dx<<odom.twist.twist.linear.x, odom.twist.twist.linear.y, odom.twist.twist.linear.z, odom.twist.twist.angular.x, odom.twist.twist.angular.y, odom.twist.twist.angular.z;	*/
+		/*-----Control-----------*/
+		//v = 2000*(_xd-_x)+1000*(_dxd-_dx);
+		fx = m*( ( 10*(xd-x)+5*(0-dx) ) - ( ( 10*(zd-z)+5*(0-dz) )*( c(psi)*s(the)*c(phi)+s(psi)*s(phi) ) )/m );
+		fy = m*( ( 10*(yd-y)+5*(0-dy) ) - ( ( 10*(zd-z)+5*(0-dz) )*( s(psi)*s(the)*c(phi)-c(psi)*s(phi) ) )/m );
+		fz = m*( 10*(zd-z)+5*(0-dz)-m*g )/( c(the)*c(phi) );
+		tx = l*( 10*(phid-phi)+5*(0-dphi) )/Ixx;
+		ty = l*( 10*(thed-the)+5*(0-dthe) )/Iyy;
+		tz = ( 10*(psid-psi)+5*(0-dpsi) )/Izz;
+		//fz = 4*(zd-z)+3*(0-dz)-g;
+		v<<0,0,fz,tx,ty,tz;
+		/*-----Allocation-------*/
+		//F << W_R_B(odom.pose.pose.orientation.x,odom.pose.pose.orientation.y,odom.pose.pose.orientation.z)*F1(tilt_angle),F2(tilt_angle);
+		F<<F1(tilt_angle),F2(tilt_angle);
+		u = F.inverse()*v;
+		cout<<v<<endl;
+		cout<<F*u<<endl;
+		cout<<"ex = "<<xd-x<<endl;
+		cout<<"ey = "<<yd-y<<endl;
+		cout<<"ez = "<<zd-z<<endl;
+		cout<<"ephi = "<<phid-phi<<endl;
+		cout<<"ethe = "<<thed-the<<endl;
+		cout<<"epsi = "<<psid-psi<<endl;
+		//G = invM*F;
+		//invG = G.inverse();
+		//u = invG*(v+invM*_b);
+		//u = invG*(v);
+		//u = M*F.inverse()*v;
+		/*-----Tilting----------*/
+		t_msg0.data = tilt_angle;
+		t_msg1.data = -tilt_angle;
+		t_msg2.data = tilt_angle;
+		t_msg3.data = -tilt_angle;
+		t_msg4.data = tilt_angle;
+		t_msg5.data = -tilt_angle;
+	
+		tilt_0_publisher.publish(t_msg0);
+		tilt_1_publisher.publish(t_msg1);
+		tilt_2_publisher.publish(t_msg2);
+		tilt_3_publisher.publish(t_msg3);
+		tilt_4_publisher.publish(t_msg4);
+		tilt_5_publisher.publish(t_msg5);
+		
+		/*---Rotor velocities--*/
+		cout<<"rotor velocities:"<<endl;
+		for(int i=0; i<6; i++ ) {
+			//cout<<sign(u[i])*sqrt(abs(fz)/(6*kf))<<endl;
+			cout<<"*******"<<endl;
+			motor_vel.data[i] = sign(u[i])*sqrt(abs(u[i])/kf);
+			cout<<motor_vel.data[i]<<endl;
+		}			
+		rotors_publisher.publish(motor_vel);
+		ros::spinOnce();
+		loop_rate.sleep();
+		//save();
+	}
+	return 0;
+}
+
+void odometry_callback(const nav_msgs::Odometry odometry_msg) {
+    odom = odometry_msg;
+}
+
+void save(){
+	ofstream myfile;
+	myfile.open ("results.txt",std::ios::app);
+	myfile <<" "<<endl;
+	myfile.close();
+}
+
+float c(float x){
+	return cos(x);
+}
+float s(float x){
+	return sin(x);
+}
+
+float sign(float x){
+	if(x>=0){return 1;}
+	else{return -1;}
+}
+
+Matrix3f W_R_B(float phi, float the, float psi)
+{
+	Matrix3f wRb(3,3);
+	wRb(0,0) = c(psi)*c(the); wRb(0,1) = c(psi)*s(the)*s(phi)-s(psi)*c(phi); wRb(0,2) = c(psi)*s(the)*c(phi)+s(psi)*s(phi);
+	wRb(1,0) = s(psi)*c(the); wRb(1,1) = s(psi)*s(the)*s(phi)+c(psi)*c(phi); wRb(1,2) = s(psi)*s(the)*c(phi)-c(psi)*s(phi);
+	wRb(2,0) =    -s(the)   ; wRb(2,1) =             c(the)*s(phi)         ; wRb(2,2) =            c(the)*c(phi);
+	return wRb;	
+}
+
+MatrixXf F1(float a){
+	MatrixXf f1(3,6);
+	float r3_2 = sqrt(3)/2.;
+	f1(0,0) =    0 ; f1(0,1) = r3_2*s(-a); f1(0,2) = r3_2*s(a); f1(0,3) = 0;     f1(0,4) = -r3_2*s(a); f1(0,5) = -r3_2*s(-a);
+	f1(1,0) = -s(a); f1(1,1) = -s(-a)/2.;  f1(1,2) = s(a)/2.;   f1(1,3) = s(-a); f1(1,4) = s(a)/2.;    f1(1,5) = -s(-a)/2.;
+	f1(2,0) =  c(a); f1(2,1) = c(-a);      f1(2,2) = c(a);      f1(2,3) = c(-a); f1(2,4) = c(a);       f1(2,5) = c(-a);
+	return f1;
+}
+MatrixXf F2(float a){
+	MatrixXf f2(3,6);
+	float r3_2 = sqrt(3)/2.;
+	f2(0,0) = 0.0; f2(0,1) =  r3_2*(l*c(-a)+d*s(-a)); f2(0,2) =  r3_2*(l*c( a)-d*s( a));
+	f2(0,3) = 0.0; f2(0,4) = -r3_2*(l*c( a)-d*s( a)); f2(0,5) = -r3_2*(l*c(-a)+d*s(-a));
+	
+	f2(1,0) = -l*c( a)+d*s( a); f2(1,1)= -(1/2.)*(l*c(-a)+d*s(-a)); f2(1,2)=  (1/2.)*(l*c( a)-d*s( a));
+	f2(1,3) =  l*c(-a)+d*s(-a); f2(1,4)=  (1/2.)*(l*c( a)-d*s( a)); f2(1,5)= -(1/2.)*(l*c(-a)+d*s(-a));
+
+	f2(2,0) = -l*s( a)-d*c( a); f2(2,1) = -l*s(-a)+d*c(-a); f2(2,2) = -l*s( a)-d*c( a);
+	f2(2,3) = -l*s(-a)+d*c(-a); f2(2,4) = -l*s( a)-d*c( a); f2(2,5) = -l*s(-a)+d*c(-a);
+	return f2;
+}
+
