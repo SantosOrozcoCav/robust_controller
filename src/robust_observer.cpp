@@ -21,9 +21,11 @@ void save();			//-------Saving data function
 /*-------------------------Functions----------------------*/
 
 /*--------------------------Constants-----------------------*/
-float pi = 3.1416;		//-------pi
-float e  = 0.1;//float e  = 0.05;	    //-------epsilon
-int k = 0;
+float pi = 3.1416;	//-----pi
+float e  = 0.1;	    //-----epsilon
+int k = 0; 			//-----sampler
+float K = 0.01;		//-----observer gain: 0.01 best
+float Ks = 1000.; 	//-----hyperbolic tangent gain
 /*--------------------------Constants-----------------------*/
 
 
@@ -88,54 +90,54 @@ int main(int argc, char **argv)
 		/*----Robust Observer---*/
 		
 		/*----------X-----------*/
-		dx11g = x12g + 1*e*( x11-x11g + tanh( 100*(x11-x11g) ) )/pow(1*e,2);
-		dx12g = x13g +   ( x11-x11g + tanh( 100*(x11-x11g) ) )/pow(1*e,2) + u.data[0];
-		dx13g =    (1/(1*e))*( x11-x11g + tanh( 100*(x11-x11g) ) )/pow(1*e,2);
+		dx11g = x12g + 1*e*( x11-x11g + 	K*tanh( Ks*(x11-x11g) ) )/pow(1*e,2);
+		dx12g = x13g +   ( x11-x11g + 		K*tanh( Ks*(x11-x11g) ) )/pow(1*e,2) + u.data[0];
+		dx13g =    (1/(1*e))*( x11-x11g + 	K*tanh( Ks*(x11-x11g) ) )/pow(1*e,2);
 		
 		x11g = x11g + 0.01*dx11g;
 		x12g = x12g + 0.001*dx12g;
 		x13g = x13g + 0.0001*dx13g;
 		
 		/*----------Y-----------*/
-		dx21g = x22g + 1*e*( x21-x21g + tanh( 100*(x21-x21g) ) )/pow(1*e,2);
-		dx22g = x23g +   ( x21-x21g + tanh( 100*(x21-x21g) ) )/pow(1*e,2) + u.data[1];
-		dx23g =    (1/(1*e))*( x21-x21g + tanh( 100*(x21-x21g) ) )/pow(1*e,2);
+		dx21g = x22g + 1*e*( x21-x21g + 	K*tanh( Ks*(x21-x21g) ) )/pow(1*e,2);
+		dx22g = x23g +   ( x21-x21g +		K*tanh( Ks*(x21-x21g) ) )/pow(1*e,2) + u.data[1];
+		dx23g =    (1/(1*e))*( x21-x21g + 	K*tanh( Ks*(x21-x21g) ) )/pow(1*e,2);
 		
 		x21g = x21g + 0.01*dx21g;
 		x22g = x22g + 0.001*dx22g;
 		x23g = x23g + 0.0001*dx23g;
 		
 		/*----------Z-----------*/
-		dx31g = x32g + e*( x31-x31g + tanh( 100*(x31-x31g) ) )/pow(e,2);
-		dx32g = x33g +   ( x31-x31g + tanh( 100*(x31-x31g) ) )/pow(e,2) + u.data[2];
-		dx33g =    (1/e)*( x31-x31g + tanh( 100*(x31-x31g) ) )/pow(e,2);
+		dx31g = x32g + e*( x31-x31g + K*tanh( Ks*(x31-x31g) ) )/pow(e,2);
+		dx32g = x33g +   ( x31-x31g + K*tanh( Ks*(x31-x31g) ) )/pow(e,2) + u.data[2];
+		dx33g =    (1/e)*( x31-x31g + K*tanh( Ks*(x31-x31g) ) )/pow(e,2);
 		
 		x31g = x31g + 0.01*dx31g;
 		x32g = x32g + 0.001*dx32g;
 		x33g = x33g + 0.0001*dx33g;
 		
 		/*--------ROLL----------*/
-		dx41g = x42g + 0.1*e*( x41-x41g + tanh( 100*(x41-x41g) ) )/pow(0.1*e,2);
-		dx42g = x43g +   ( x41-x41g + tanh( 100*(x41-x41g) ) )/pow(0.1*e,2) + u.data[3];
-		dx43g =    (1/(0.1*e))*( x41-x41g + tanh( 100*(x41-x41g) ) )/pow(0.1*e,2);
+		dx41g = x42g + 0.1*e*( x41-x41g + 	K*tanh( Ks*(x41-x41g) ) )/pow(0.1*e,2);
+		dx42g = x43g +   ( x41-x41g +		K*tanh( Ks*(x41-x41g) ) )/pow(0.1*e,2) + u.data[3];
+		dx43g =    (1/(0.1*e))*( x41-x41g + K*tanh( Ks*(x41-x41g) ) )/pow(0.1*e,2);
 		
 		x41g = x41g + 0.001*dx41g;
 		x42g = x42g + 0.0001*dx42g;
 		x43g = x43g + 0.00001*dx43g;
 		
 		/*--------PITCH----------*/
-		dx51g = x52g + 0.1*e*( x51-x51g + tanh( 100*(x51-x51g) ) )/pow(0.1*e,2);
-		dx52g = x53g +   ( x51-x51g + tanh( 100*(x51-x51g) ) )/pow(0.1*e,2) + u.data[4];
-		dx53g =    (1/(0.1*e))*( x51-x51g + tanh( 100*(x51-x51g) ) )/pow(0.1*e,2);
+		dx51g = x52g + 0.1*e*( x51-x51g + 	K*tanh( Ks*(x51-x51g) ) )/pow(0.1*e,2);
+		dx52g = x53g +   ( x51-x51g +	  	K*tanh( Ks*(x51-x51g) ) )/pow(0.1*e,2) + u.data[4];
+		dx53g =    (1/(0.1*e))*( x51-x51g + K*tanh( Ks*(x51-x51g) ) )/pow(0.1*e,2);
 		
 		x51g = x51g + 0.001*dx51g;
 		x52g = x52g + 0.0001*dx52g;
 		x53g = x53g + 0.00001*dx53g;
 		
 		/*--------YAW-----------*/
-		dx61g = x62g + 0.1*e*( x61-x61g + tanh( 100*(x61-x61g) ) )/pow(0.1*e,2);
-		dx62g = x63g +   ( x61-x61g + tanh( 100*(x61-x61g) ) )/pow(0.1*e,2) + u.data[5];
-		dx63g =    (1/(0.1*e))*( x61-x61g + tanh( 100*(x61-x61g) ) )/pow(0.1*e,2);
+		dx61g = x62g + 0.1*e*( x61-x61g +	K*tanh( Ks*(x61-x61g) ) )/pow(0.1*e,2);
+		dx62g = x63g +   ( x61-x61g +		K*tanh( Ks*(x61-x61g) ) )/pow(0.1*e,2) + u.data[5];
+		dx63g =    (1/(0.1*e))*( x61-x61g +	K*tanh( Ks*(x61-x61g) ) )/pow(0.1*e,2);
 		
 		x61g = x61g + 0.001*dx61g;
 		x62g = x62g + 0.0001*dx62g;
@@ -156,7 +158,7 @@ int main(int argc, char **argv)
 		k++;
 		if(k==100)
 		{
-			//save();
+			save();
 			k = 0;
 		}
 		
@@ -176,11 +178,6 @@ void save(){
 	ofstream myfile;
 	myfile.open ("resultsSMO.txt",std::ios::app);
 	myfile <<x11<<","<<x11g<<","<<x12g<<","<<x13g<<","<<x21<<","<<x21g<<","<<x22g<<","<<x23g<< ","<<x31<<","<<x31g<<","<<x32g<<","<<x33g<<","<<x41<<","<<x41g<<","<<x42g<<","<<x43g<< ","<<x51<<","<<x51g<<","<<x52g<<","<<x53g<<","<<x61<<","<<x61g<<","<<x62g<<","<<x63g<<endl;
-	//myfile <<x21<<","<<x21g<<","<<x22g<<","<<x23g<<endl;
-	//myfile <<x31<<","<<x31g<<","<<x32g<<","<<x33g<<endl;
-	//myfile <<x41<<","<<x41g<<","<<x42g<<","<<x43g<<endl;
-	//myfile <<x51<<","<<x51g<<","<<x52g<<","<<x53g<<endl;
-	//myfile <<x61<<","<<x61g<<","<<x62g<<","<<x63g<<endl;
 	myfile.close();
 }
 
@@ -243,12 +240,4 @@ Vector3d R2XYZ(Matrix3d R) {
     return XYZ;
 }
 
-
-		/*T = J*( -9*eR-3*eO ) +w.cross(Jw)-J*( hat( w(0),w(1),w(2) )*R.transpose()*Rd*wd - R.transpose()*Rd*dwd );
-		tx = 15*(phid-phi)+13*(dphid-dphi)+40*tanh( 10*( 30*(phid-phi)+(dphid-dphi) ) );
-		ty = 15*(thed-the)+13*(dthed-dthe)+40*tanh( 10*( 30*(thed-the)+(dthed-dthe) ) );
-		tz = 15*(psid-psi)+13*(dpsid-dpsi)+60*tanh( 10*( 30*(psid-psi)+(dpsid-dpsi) ) );
-		fx = 0.05*(xd-x)+0.03*(dxd-dx)+0.1*tanh( 10*( 30*(xd-x)+(dxd-dx) ) );
-		fy = 0.05*(yd-y)+0.03*(dyd-dy)+0.1*tanh( 10*( 30*(yd-y)+(dyd-dy) ) );
-		fz = 15*(zd-z)+13*(dzd-dz)+20*tanh( 10*( 10*(zd-z)+(dzd-dz) ) );*/
 		

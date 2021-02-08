@@ -212,7 +212,7 @@ int main(int argc, char **argv)
 		
 		ros::spinOnce();
 		loop_rate.sleep();
-		save();
+		//save();
 	}
 	return 0;
 }

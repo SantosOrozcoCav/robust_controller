@@ -57,7 +57,7 @@ float pi = 3.1416;		//-------pi
 float kf = 8.54858e-6, km = 1.6e-2, d = km/kf;
 float l = 0.215;
 //float tilt_angle = 0.1*pi/180.0;//no tilt
-float tilt_angle = 20*pi/180.0;
+float tilt_angle = 20.*pi/180.0;
 /*------------------Parameters of dynamics---------------*/
 
 
@@ -73,7 +73,7 @@ Vector3d _orientation;
 
 /*--------------------References------------------*/
 float xd=1.0,yd=-2.0,zd=2.0;
-float phid=0.0*pi/180.0,thed=0.0*pi/180.0,psid= 0.0*pi/180.0;
+float phid=0.0*pi/180.0,thed=0.0*pi/180.0,psid= -20.0*pi/180.0;
 
 float dxd=0.0,dyd=0.0,dzd=0.0;
 float dphid=0.0,dthed=0.0,dpsid=0.0;
@@ -107,12 +107,12 @@ int main(int argc, char **argv)
 	
 	ros::Publisher plot_publisher = nh.advertise<std_msgs::Float32MultiArray>("error_signals",0);
 	
-	ros::Publisher tilt_0_publisher = nh.advertise<std_msgs::Float64>("/tilt/tilt_rotor_0_joint_controller/command",0);
-	ros::Publisher tilt_1_publisher = nh.advertise<std_msgs::Float64>("/tilt/tilt_rotor_1_joint_controller/command",0);
-	ros::Publisher tilt_2_publisher = nh.advertise<std_msgs::Float64>("/tilt/tilt_rotor_2_joint_controller/command",0);
-	ros::Publisher tilt_3_publisher = nh.advertise<std_msgs::Float64>("/tilt/tilt_rotor_3_joint_controller/command",0);
-	ros::Publisher tilt_4_publisher = nh.advertise<std_msgs::Float64>("/tilt/tilt_rotor_4_joint_controller/command",0);
-	ros::Publisher tilt_5_publisher = nh.advertise<std_msgs::Float64>("/tilt/tilt_rotor_5_joint_controller/command",0);
+	ros::Publisher tilt_0_publisher = nh.advertise<std_msgs::Float64>("/tilt_rotor_0_joint_controller/command",0);
+	ros::Publisher tilt_1_publisher = nh.advertise<std_msgs::Float64>("/tilt_rotor_1_joint_controller/command",0);
+	ros::Publisher tilt_2_publisher = nh.advertise<std_msgs::Float64>("/tilt_rotor_2_joint_controller/command",0);
+	ros::Publisher tilt_3_publisher = nh.advertise<std_msgs::Float64>("/tilt_rotor_3_joint_controller/command",0);
+	ros::Publisher tilt_4_publisher = nh.advertise<std_msgs::Float64>("/tilt_rotor_4_joint_controller/command",0);
+	ros::Publisher tilt_5_publisher = nh.advertise<std_msgs::Float64>("/tilt_rotor_5_joint_controller/command",0);
 
 	ros::Subscriber feedback = nh.subscribe("/firefly_tilt/odometry", 1, odometry_callback);
 	ros::Subscriber disturbances = nh.subscribe("/disturbances", 1, disturbances_callback);
@@ -152,19 +152,18 @@ int main(int argc, char **argv)
 		ephi  = phid - phi;   ethe  = thed  - the;  epsi  = psid  - psi;
 		dephi = dphid - dphi; dethe = dthed - dthe; depsi = dpsid - dpsi;
 		/*--------Disturbances--------*/
-		x3g<<dist.data[0],-dist.data[1],dist.data[2],-dist.data[3],-dist.data[4],dist.data[5];
+		x3g<<-dist.data[0],dist.data[1], dist.data[2],dist.data[3],dist.data[4],dist.data[5];
 		/*-----Control-----------*/
 		//fx =  sat(  8.0*db(ex,1e-3) + 50.0*db(dex,1e-3) , 0.2 );
 		//fy = -sat( 12.0*db(ey,1e-3) + 20.0*db(dey,1e-3) , 0.2 );
-		fx =  sat( 2.0*db(ex,1e-3) + 4.5*db(dex,1e-3) , 0.5 );//1.5
-		fy = -sat( 1.0*db(ey,1e-3) + 2.5*db(dey,1e-3) , 0.5 );//1.5
-		fz =  sat( 15.0*db(ez,1e-2) + 12.0*db(dez,1e-2) , 30 );
-		tx = -sat( 800.0*db(ephi,5e-3) + 1000.0*db(dephi,1e-3) , 100 );
-		ty = -sat( 800.0*db(ethe,5e-3) + 1000.0*db(dethe,1e-3) , 100 );
-		tz =  sat( 2500.0*db(epsi,1e-3) + 5000.0*db(depsi,1e-3) , 500 );
+		fx =  sat( 2.0*db(ex,1e-3) + 4.0*db(dex,1e-3) - x3g[0], 0.5 );//1.5
+		fy = -sat( 2.0*db(ey,1e-3) + 4.0*db(dey,1e-3) - x3g[1], 0.5 );//1.5
+		fz =  sat( 15.0*db(ez,1e-2) + 12.0*db(dez,1e-2) - x3g[2], 30 );
+		tx = -sat( 500.0*db(ephi,5e-3) + 1200.0*db(dephi,1e-3) - x3g[3] , 100 );//
+		ty = -sat( 500.0*db(ethe,5e-3) + 1200.0*db(dethe,1e-3) - x3g[4] , 100 );//600,1500
+		tz =  sat( 2500.0*db(epsi,1e-3) + 5000.0*db(depsi,1e-3) - x3g[5] , 500 );//
 		
-		v<<fx,fy,fz,tx,ty,tz;
-		u = v-x3g;
+		u<<fx,fy,fz,tx,ty,tz;
 		/*-----Allocation------------*/
 		F<<F1(tilt_angle),F2(tilt_angle);
 		invF = F.inverse();
@@ -214,7 +213,7 @@ int main(int argc, char **argv)
 		
 		ros::spinOnce();
 		loop_rate.sleep();
-		//save();
+		save();
 	}
 	return 0;
 }
@@ -229,7 +228,7 @@ void disturbances_callback(const std_msgs::Float32MultiArray disturbances_msg) {
 
 void save(){
 	ofstream myfile;
-	myfile.open ("NewResultsADRC_vs.txt",std::ios::app);
+	myfile.open ("resultsADRC.txt",std::ios::app);
 	myfile <<x<<","<<y<<","<<z<<","<<phi<<","<<the<<","<<psi<<"," <<u[0]<<","<<u[1]<<","<<u[2]<<","<<u[3]<<","<<u[4]<<","<<u[5]<<"," <<f[0]<<","<<f[1]<<","<<f[2]<<","<<f[3]<<","<<f[4]<<","<<f[5]<<"," <<x3g[0]<<","<<x3g[1]<<","<<x3g[2]<<","<<x3g[3]<<","<<x3g[4]<<","<<x3g[5]<<endl;
 	myfile.close();
 }

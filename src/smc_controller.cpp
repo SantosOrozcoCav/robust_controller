@@ -71,7 +71,7 @@ Vector3d _orientation;
 /*--------------------Control variables------------------*/
 
 /*--------------------References------------------*/
-float xd=1.0,yd=-2.0,zd=2.0;
+float xd=0.0,yd=0.0,zd=2.0;
 float phid=0.0*pi/180.0,thed=0.0*pi/180.0,psid= 0.0*pi/180.0;
 
 float dxd=0.0,dyd=0.0,dzd=0.0;
@@ -174,25 +174,28 @@ int main(int argc, char **argv)
 		/*----Sliding surface---------*/
 		float sx = 1*(xd-x)+(dxd-dx);
 		float sy = 1*(yd-y)+(dyd-dy);
-		float sz = 100*(zd-z)+(dzd-dz);
+		float sz = 10*(zd-z)+(dzd-dz);
 		float sphi = 1*(phid-phi)+(dphid-dphi);
-		float sthe = 100*(thed-the)+(dthed-dthe);
-		float spsi = 100*(psid-psi)+(dpsid-dpsi);
+		float sthe = 10*(thed-the)+(dthed-dthe);
+		float spsi = 10*(psid-psi)+(dpsid-dpsi);
 		/*------Stabilizer------------*/
 		/*fx =  sat( 0.015*db(ex,1e-3) + 0.012*db(dex,1e-3) + 0.02*tanh(100*sx), 0.1 );
 		fy = -sat( 0.015*db(ey,1e-3) + 0.012*db(dey,1e-3) + 0.02*tanh(100*sy), 0.1 );
 		fx =  sat( 0.005*db(ex,1e-3) + 0.01*db(dex,1e-3) + 0.01*tanh(100*sx), 0.1 );
-		fy = -sat( 0.0*db(ey,1e-3) + 0.0*db(dey,1e-3) + 0*tanh(100*sy), 0.1 );
-		fz =  sat( 15.0*db(ez,1e-2) + 12.0*db(dez,1e-2) + 20.0*tanh(100*sz), 30);
+		fy = -sat( 0.0*db(ey,1e-3) + 0.0*db(dey,1e-3) + 0*tanh(100*sy), 0.1 );*/
+		fz =  sat( 15.0*db(ez,1e-2) + 12.0*db(dez,1e-2) + 0.0*tanh(100*sz), 30);
+		/*
 		tx = -sat( 350*db(ephi,5e-3) + 300*db(dephi,1e-3) + 2.0*tanh(100*sphi),100 );//
 		ty = -sat( 350.0*db(ethe,5e-3) + 300.0*db(dethe,1e-3) + 2.0*tanh(100*sthe) ,100 );//
-		tz =  sat( 800.0*db(epsi,1e-3) + 700.0*db(depsi,1e-3) + 2.0*tanh(100*spsi) , 500);*/
+		tz =  sat( 800.0*db(epsi,1e-3) + 700.0*db(depsi,1e-3) + 2.0*tanh(100*spsi) , 500);
+		
+		/*
 		fx =  sat( 2.0*db(ex,1e-3) + 4.5*db(dex,1e-3) + 0.5*tanh(100*sx), 0.5 );//1.5
 		fy = -sat( 1.0*db(ey,1e-3) + 2.5*db(dey,1e-3) + 0.5*tanh(100*sy), 0.5 );//1.5
 		fz =  sat( 15.0*db(ez,1e-2) + 12.0*db(dez,1e-2) + 20.0*tanh(100*sz), 30 );
 		tx = -sat( 800.0*db(ephi,5e-3) + 1000.0*db(dephi,1e-3), 100);
 		ty = -sat( 800.0*db(ethe,5e-3) + 1000.0*db(dethe,1e-3), 100);
-		tz =  sat( 2500.0*db(epsi,1e-3) + 5000.0*db(depsi,1e-3) , 500 );
+		tz =  sat( 2500.0*db(epsi,1e-3) + 5000.0*db(depsi,1e-3) , 500 );*/
 		
 		v<<fx,fy,fz,tx,ty,tz;
 		u = v;//+b;
